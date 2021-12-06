@@ -1,98 +1,116 @@
-// https://github.com/LukeGarrigan/p5-multiplayer-game-starter
-
 let socket = io();
 
 socket.on('connect', () => {
     console.log('Connected');
-    // console.log('My socket id is: ', socket.id);
+
+    // ping server with new-user event on connection
     socket.emit('new-user');
+
+    socket.on('allSockets', (socketsData) => {
+        // console.log(socketsData);
+        for (let i = 0; i < socketsData.ids.length - 1; i++) {
+            let pastUser = new User(int(random(50, width - 50)), int(random(50, height - 50)), socketsData.ids[i]);
+            allOtherUsers.push(pastUser);
+        }
+    });
+
 });
 
-let leftButtonCount = 0;
-let rightButtonCount = 0;
-let downButtonCount = 0;
-let upButtonCount = 0;
-let users = [];
+let allOtherUsers = [];
 let user;
-let existingUsers;
-
+let xPos, yPos;
 
 function setup() {
     let myCanvas = createCanvas(windowWidth, windowHeight);
     myCanvas.parent('canvas-container');
 
+    xPos = int(random(50, width - 50));
+    yPos = int(random(50, height - 50));
+
+    user = new User(xPos, yPos, 'me'); // temp id
+
     socket.on('new-user', (data) => {
-        user = new User(windowWidth / 2, windowHeight / 2, data);
-        console.log(user);
-        users.push(user);
-        console.log("users[]:", users);
+        let otherUser = new User(int(random(50, width - 50)), int(random(50, height - 50)), data);
+        // console.log(otherUser);
+        allOtherUsers.push(otherUser);
+        // console.log("allOtherUsers[]:", allOtherUsers);
     });
 
     socket.on('userPositionServer', (data) => {
-        console.log("userPositionServer:", data);
+        // console.log("userPositionServer:", data);
+        moveOthers(data);
     });
 
-    // socket.on('allSockets', (data) => {
-    //     console.log("allSockets:", data);
-    //     existingUsers = data.ids;
-    //     existingUsers.forEach(u => new User());
-    // });
+    console.log("BEFORE:", allOtherUsers);
+
+
+    socket.on('user-left', (socketsData) => {
+
+        console.log("index:", socketsData.index);
+
+        if (socketsData.index > -1) {
+            allOtherUsers.splice(socketsData.index, 1);
+        }
+
+        console.log("AFTER:", allOtherUsers);
+
+    });
 
 }
 
 function draw() {
     background(220);
 
-    users.forEach(user => user.display());
-    users.forEach(user => user.move());
+    // display & move other users
+    allOtherUsers.forEach(user => user.display());
+    allOtherUsers.forEach(user => user.updatePosition(user.x, user.y));
 
-   // existingUsers.forEach(user => user.display());
+    // display & move current user
+    user.display();
+    user.updatePosition(xPos, yPos);
+
+    arrowKeys();
+
+}
+
+function arrowKeys() {
+    if (keyIsDown(LEFT_ARROW)) {
+        if (xPos > 50) {
+            xPos -= 3;
+        }
+    }
+    if (keyIsDown(RIGHT_ARROW)) {
+        if (xPos < width - 50) {
+            xPos += 3;
+        }
+    }
+    if (keyIsDown(DOWN_ARROW)) {
+        if (yPos < height - 50) {
+            yPos += 3;
+        }
+    }
+    if (keyIsDown(UP_ARROW)) {
+        if (yPos > 50) {
+            yPos -= 3;
+        }
+    }
 
     if (keyIsPressed && (keyCode === UP_ARROW || keyCode === DOWN_ARROW || keyCode === LEFT_ARROW || keyCode === RIGHT_ARROW)) {
-        /* STEP 4.2 */
         let userPos = {
             x: user.x,
             y: user.y
-            // id: user.id
         };
         // console.log("user position:", userPos);
         socket.emit('userPosition', userPos);
     }
 
-    // reset button counts so speed doesn't keep increasing
-    leftButtonCount = 0;
-    rightButtonCount = 0;
-    downButtonCount = 0;
-    upButtonCount = 0;
 }
 
-
-function updateUsers(serverUsers) {
-    let removedUsers = users.filter(p => serverUsers.findIndex(s => s.id == p.id));
-    for (let user of removedUsers) {
-        removeUser(user.id);
-    }
-    for (let i = 0; i < serverUsers.length; i++) {
-        let userFromServer = serverUsers[i];
-        if (!userExists(userFromServer)) {
-            users.push(new User(userFromServer.x, userFromServer.y, userFromServer.id));
+function moveOthers(data) {
+    for (let i = 0; i < allOtherUsers.length; i++) {
+        if (allOtherUsers[i].id == data.id) {
+            allOtherUsers[i].x = data.x;
+            allOtherUsers[i].y = data.y;
         }
     }
-}
-
-
-function userExists(userFromServer) {
-    // loop through users array to check if a user currently exists
-    for (let i = 0; i < users.length; i++) {
-        if (users[i].id === userFromServer) {
-            return true;
-        }
-    }
-    return false;
-}
-
-function removeUser(userID) {
-    // filter for all users whose ids are not equal to the disconnected user
-    // update users array to contain only the present users
-    users = users.filter(user => user.id !== userID);
 }

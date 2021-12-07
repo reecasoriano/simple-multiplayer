@@ -1,7 +1,7 @@
 let socket = io();
 
 socket.on('connect', () => {
-    console.log('Connected');
+    console.log(socket.id, 'connected');
 
     // ping server with new-user event on connection
     socket.emit('new-user');
@@ -41,18 +41,25 @@ function setup() {
         moveOthers(data);
     });
 
-    console.log("BEFORE:", allOtherUsers);
-
-
+    
     socket.on('user-left', (socketsData) => {
 
-        console.log("index:", socketsData.index);
+        console.log(socketsData.ids[socketsData.index]);
+       
+        let userIndex;
 
-        if (socketsData.index > -1) {
-            allOtherUsers.splice(socketsData.index, 1);
+        // search for socket id to remove
+        for (let i = 0; i < allOtherUsers.length; i++) {
+            if (allOtherUsers[i].id == socketsData.ids[socketsData.index]) {
+                userIndex = i;
+            }
         }
 
-        console.log("AFTER:", allOtherUsers);
+        console.log("index:", userIndex);
+
+        if (userIndex > -1) {
+            allOtherUsers.splice(userIndex, 1);
+        }
 
     });
 
